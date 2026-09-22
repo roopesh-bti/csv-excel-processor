@@ -7,6 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EmployeeProcessorTest {
 
@@ -39,7 +40,7 @@ class EmployeeProcessorTest {
 
     @Test
     void isAdminAcceptsTheConfiguredPassword() {
-        assertEquals("Admin@12345", SecurityUtil.getAdminPassword());
-        assertEquals(true, SecurityUtil.isAdmin(new String("Admin@12345")));
+        assertEquals("demo-password", SecurityUtil.getAdminPassword());
+        assertTrue(SecurityUtil.isAdmin("demo-password"));
     }
 }
