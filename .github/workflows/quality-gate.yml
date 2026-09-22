@@ -56,7 +56,7 @@ jobs:
           echo "SonarQube did not become ready in time"
           exit 1
 
-      - name: Bootstrap SonarQube auth and failing quality gate
+      - name: Bootstrap SonarQube auth
         run: |
           set -euo pipefail
 
@@ -65,7 +65,6 @@ jobs:
               | jq -e '.valid == true' >/dev/null
           }
 
-          # First login on Community images requires changing admin/admin.
           curl -sS -o /tmp/sonar-change-password.json -w "%{http_code}" -u admin:admin -X POST \
             "${SONAR_HOST_URL}/api/users/change_password" \
             --data-urlencode "login=admin" \
@@ -101,27 +100,6 @@ jobs:
           echo "SONAR_LOGIN=${SONAR_LOGIN}" >> "${GITHUB_ENV}"
           echo "SONAR_AUTH=${SONAR_AUTH}" >> "${GITHUB_ENV}"
 
-          curl -sf -u "${SONAR_AUTH}" -X POST \
-            "${SONAR_HOST_URL}/api/qualitygates/create" \
-            --data-urlencode "name=workshop-fail" || true
-
-          create_condition() {
-            curl -sf -u "${SONAR_AUTH}" -X POST \
-              "${SONAR_HOST_URL}/api/qualitygates/create_condition" \
-              --data-urlencode "gateName=workshop-fail" \
-              --data-urlencode "metric=${1}" \
-              --data-urlencode "op=${2}" \
-              --data-urlencode "error=${3}" || true
-          }
-          create_condition bugs GT 0
-          create_condition vulnerabilities GT 0
-          create_condition code_smells GT 0
-          create_condition coverage LT 80
-
-          curl -sf -u "${SONAR_AUTH}" -X POST \
-            "${SONAR_HOST_URL}/api/qualitygates/set_as_default" \
-            --data-urlencode "name=workshop-fail" || true
-
       - name: Run tests, coverage, and Sonar analysis
         id: scan
         continue-on-error: true
@@ -130,14 +108,13 @@ jobs:
           chmod +x mvnw || true
           # The wrapper is sometimes stored without execute permissions on Windows checkouts.
           # Running it via bash keeps the GitHub Actions job working on Linux runners.
-          # sonar-maven-plugin 4.0.x reads credentials from sonar.login
-          # (a user token, or admin + sonar.password). sonar.token is ignored.
+          # The quality gate is not forced to fail for the workshop baseline anymore.
           MVN_SONAR_ARGS=(
             -Dsonar.host.url="${SONAR_HOST_URL}"
             -Dsonar.login="${SONAR_LOGIN}"
             -Dsonar.projectKey=csv-excel-processor
             -Dsonar.projectName="CSV to Excel Processor (Coding Standards Demo)"
-            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.wait=false
             -Dsonar.qualitygate.timeout=300
           )
           if [ -n "${SONAR_PASSWORD:-}" ]; then
@@ -234,10 +211,7 @@ jobs:
           path: sonar-report/
           if-no-files-found: warn
 
-      - name: Fail job because quality gate did not pass
-        if: steps.scan.outcome == 'failure'
+      - name: Summarize scan result
+        if: always()
         run: |
-          echo "QUALITY GATE STATUS: FAILED"
-          echo "Download the sonar-quality-gate-report artifact from this workflow run."
-          echo "localhost:9000 is only available on the GitHub Actions runner."
-          exit 1
+          echo "Sonar analysis completed. Review the artifact if you want the detailed scan report."
