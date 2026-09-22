@@ -125,8 +125,11 @@ jobs:
       - name: Run tests, coverage, and Sonar analysis
         id: scan
         continue-on-error: true
+        shell: bash
         run: |
-          chmod +x mvnw
+          chmod +x mvnw || true
+          # The wrapper is sometimes stored without execute permissions on Windows checkouts.
+          # Running it via bash keeps the GitHub Actions job working on Linux runners.
           # sonar-maven-plugin 4.0.x reads credentials from sonar.login
           # (a user token, or admin + sonar.password). sonar.token is ignored.
           MVN_SONAR_ARGS=(
@@ -140,7 +143,7 @@ jobs:
           if [ -n "${SONAR_PASSWORD:-}" ]; then
             MVN_SONAR_ARGS+=(-Dsonar.password="${SONAR_PASSWORD}")
           fi
-          ./mvnw -B verify sonar:sonar "${MVN_SONAR_ARGS[@]}"
+          bash ./mvnw -B verify sonar:sonar "${MVN_SONAR_ARGS[@]}"
 
       - name: Export SonarQube report
         if: always()
